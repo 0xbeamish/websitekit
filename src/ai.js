@@ -6,7 +6,7 @@ import { normalize, section, PRESETS, FONT_PAIRS, RADII, RHYTHMS, MAX_PAGES } fr
 // scoped to that site. It never publishes; a person does.
 
 const MODEL = "claude-opus-5-5";
-export const PER_SITE_DAILY = 20; // assistant requests per site per day
+export const PER_SITE_DAILY = 100; // assistant requests per site per day
 const ALL_SITES_DAILY = 200; // across all sites; bounds total spend
 const MAX_STEPS = 6; // model calls per request
 const HISTORY = 24; // past messages the assistant sees
