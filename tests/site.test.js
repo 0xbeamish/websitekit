@@ -113,3 +113,26 @@ test("describeChanges names pages and sections in plain words", () => {
   next.sections[1].body = "New story.";
   assert.deepEqual(describeChanges(SITE, next), ["About", "“News” page"]);
 });
+
+test("header and footer colours are optional and keep text readable", async () => {
+  assert.doesNotMatch(renderSite(SITE), /has-header|has-footer/); // off by default: the page background
+  const r = await submit(SITE, "", { headerOn: "1", headerColor: "#111111", footerOn: "1", footerColor: "#f2f2f2" });
+  const html = renderSite(r.config);
+  assert.match(html, /class="p-warm has-header has-footer"/);
+  assert.match(html, /--header-bg:#111111;--header-ink:#ffffff/);
+  assert.match(html, /--footer-bg:#f2f2f2;--footer-ink:#16191d/);
+});
+
+test("one page can have its own spacing", async () => {
+  const r = await submit(SITE, "news", { pageRhythm: "compact" });
+  assert.match(renderSite(r.config, { page: "news" }), /--rhythm:4rem/);
+  assert.match(renderSite(r.config), /--rhythm:8rem/); // home keeps the site's (Warm: spacious)
+});
+
+test("the new looks render with their own fonts", () => {
+  for (const [preset, font] of [["modern", "family=Inter\\+Tight"], ["magazine", "family=Fraunces"]]) {
+    const html = renderSite({ ...SITE, theme: { preset } });
+    assert.match(html, new RegExp(`class="p-${preset}`));
+    assert.match(html, new RegExp(font));
+  }
+});

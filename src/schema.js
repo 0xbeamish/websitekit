@@ -9,6 +9,8 @@ export const PRESETS = {
   grassroots: { label: "Grassroots", blurb: "Loud and direct: huge type, flat blocks of colour.", fonts: "grotesk", radius: "square", rhythm: "comfortable" },
   bulletin: { label: "Bulletin", blurb: "Newsy: ruled columns, like a printed bulletin.", fonts: "news", radius: "square", rhythm: "compact" },
   warm: { label: "Warm", blurb: "Friendly: rounded shapes and soft colour.", fonts: "friendly", radius: "round", rhythm: "spacious" },
+  modern: { label: "Modern", blurb: "Clean and confident: bold sans-serif, plenty of space, quiet outlined boxes.", fonts: "modern", radius: "soft", rhythm: "spacious" },
+  magazine: { label: "Magazine", blurb: "Expressive: big serif headlines with italics, like a magazine feature.", fonts: "magazine", radius: "square", rhythm: "comfortable" },
 };
 export const DEFAULT_PRESET = "civic";
 export const FONT_PAIRS = {
@@ -16,6 +18,8 @@ export const FONT_PAIRS = {
   grotesk: { label: "Archivo", head: "Archivo", body: "Archivo", q: "family=Archivo:wdth,wght@62..125,400;62..125,600;62..125,800" },
   news: { label: "Newsreader + Libre Franklin", head: "Newsreader", body: "Libre Franklin", q: "family=Newsreader:opsz,wght@6..72,500;6..72,700&family=Libre+Franklin:wght@400;600;700" },
   friendly: { label: "Young Serif + Figtree", head: "Young Serif", body: "Figtree", q: "family=Young+Serif&family=Figtree:wght@400;600;700" },
+  modern: { label: "Inter Tight + Inter", head: "Inter Tight", body: "Inter", q: "family=Inter+Tight:wght@600;700;800&family=Inter:wght@400;600;700" },
+  magazine: { label: "Fraunces + Inter", head: "Fraunces", body: "Inter", q: "family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,500&family=Inter:wght@400;600;700" },
 };
 export const RADII = { square: "Square", soft: "Slightly rounded", round: "Rounded" };
 export const RHYTHMS = { compact: "Compact", comfortable: "Comfortable", spacious: "Spacious" };
@@ -90,7 +94,7 @@ function cleanPages(v) {
     if (!title) return null;
     const slug = uniqueSlug(slugOk(p.slug) ? p.slug : toSlug(title), taken);
     taken.add(slug);
-    return { title, slug, sections: cleanSections(p.sections) };
+    return { title, slug, rhythm: RHYTHMS[p.rhythm] ? p.rhythm : "", sections: cleanSections(p.sections) }; // rhythm "" = the site's spacing
   });
 }
 
@@ -105,6 +109,8 @@ export function normalize(raw = {}) {
       primary: color(c.colors?.primary, "#17324d"),
       accent: color(c.colors?.accent, "#f2b84b"),
       background: color(c.colors?.background, "#f7f7f3"),
+      header: color(c.colors?.header, ""), // "" = the page background
+      footer: color(c.colors?.footer, ""),
     },
     sections: cleanSections(c.sections),
     pages: cleanPages(c.pages),

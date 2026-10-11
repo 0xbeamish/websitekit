@@ -1,6 +1,6 @@
 import { esc } from "./html.js";
-import { normalize, toSlug } from "./schema.js";
-import { field, imageField, plain, siteGroups, storeImage, sectionErrors } from "./portal.js";
+import { normalize, toSlug, RHYTHMS } from "./schema.js";
+import { field, imageField, plain, select, siteGroups, storeImage, sectionErrors, colorsFromForm } from "./portal.js";
 
 // The editor's form: one panel per section, in page order, with every field and item. Fields are numbered by
 // position (s3_heading, s3_it1_title); s3_from says which saved section a panel started as, so fields the form
@@ -68,7 +68,8 @@ export function editorGroups(cfg, { page = null, add = "" } = {}) {
   const head = page
     ? [{ id: "page", title: "Page name and address", body: `
 ${field("pageTitle", "Page name", page.title, { required: true, hint: "The tab people click in the menu. Keep it short, like “About” or “Get involved”." })}
-${field("pageSlug", "Web address", page.slug, { hint: "The part after your domain, like about in yourgroup.org/about. Letters, numbers and dashes." })}` }]
+${field("pageSlug", "Web address", page.slug, { hint: "The part after your domain, like about in yourgroup.org/about. Letters, numbers and dashes." })}
+${select("pageRhythm", "Space between sections", { "": "Same as the rest of the site", ...RHYTHMS }, page.rhythm || "", "on this page only")}` }]
     : siteGroups(cfg).filter((g) => ["identity", "look"].includes(g.id));
   const panels = sections.map((s, i) => ({
     id: s._new ? "new" : `s${i}`, open: s._new,
@@ -144,13 +145,13 @@ export async function buildEditorForm(env, siteId, form, previous, slug = "") {
     const wanted = g(form, "pageSlug").trim() ? toSlug(g(form, "pageSlug")) : page.slug;
     if (prev.pages.some((p) => p !== page && p.slug === wanted)) errors.push(`Another page already uses the address /${wanted}.`);
     if (!errors.length) newSlug = wanted;
-    raw = { ...prev, pages: prev.pages.map((p) => (p === page ? { title: g(form, "pageTitle"), slug: newSlug, sections } : p)) };
+    raw = { ...prev, pages: prev.pages.map((p) => (p === page ? { title: g(form, "pageTitle"), slug: newSlug, rhythm: g(form, "pageRhythm"), sections } : p)) };
   } else {
     raw = {
       name: g(form, "name"),
       theme: { preset: g(form, "preset"), fonts: g(form, "fonts"), radius: g(form, "radius"), rhythm: g(form, "rhythm") },
       logo: form.get("removeLogo") ? "" : prev.logo,
-      colors: { primary: g(form, "primaryColor"), accent: g(form, "accentColor"), background: g(form, "backgroundColor") },
+      colors: colorsFromForm(form),
       sections, pages: prev.pages,
     };
     if (!raw.name.trim()) errors.push("Organization name is required.");

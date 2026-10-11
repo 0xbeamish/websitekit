@@ -64,7 +64,9 @@ export function renderSite(raw, { page = "", href = (slug) => (slug ? `/${slug}`
     contactHref: anchor(isContact) || (multi && contactPage !== undefined ? href(contactPage) : null),
   };
   const body = sections.map((s, i) => RENDER[s.type](s, ctx).replace(/^<section/, `<section id="${ids[i]}"`)).join("\n");
-  const { primary, accent, background } = c.colors;
+  const { primary, accent, background, header, footer } = c.colors;
+  const rhythm = RHYTHM[current?.rhythm || t.rhythm];
+  const band = (name, bg) => (bg ? `;--${name}-bg:${bg};--${name}-ink:${on(bg)}` : ""); // a coloured header or footer, with readable text
   const dark = lum(background) < 0.2;
 
   return `<!doctype html>
@@ -77,9 +79,9 @@ ${c.logo ? `<link rel="icon" href="${esc(c.logo)}">` : ""}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?${fonts.q}&display=swap">
 <link rel="stylesheet" href="/_kit/site.css?v=${CSS_VERSION}">
 <style>:root{--primary:${primary};--accent:${accent};--background:${background};--on-primary:${on(primary)};--on-accent:${on(accent)};
---head:"${fonts.head}",Georgia,serif;--body:"${fonts.body}",system-ui,sans-serif;--radius:${RADIUS[t.radius]};--rhythm:${RHYTHM[t.rhythm]}${
+--head:"${fonts.head}",Georgia,serif;--body:"${fonts.body}",system-ui,sans-serif;--radius:${RADIUS[t.radius]};--rhythm:${rhythm}${band("header", header)}${band("footer", footer)}${
   dark ? ";--ink:#ffffff;--muted:rgba(255,255,255,.84);--rule:rgba(255,255,255,.32);--tint:rgba(255,255,255,.08)" : ""}}</style>
-</head><body class="p-${t.preset}${dark ? " dark" : ""}">
+</head><body class="p-${t.preset}${dark ? " dark" : ""}${header ? " has-header" : ""}${footer ? " has-footer" : ""}">
 <a class="skip" href="#main">Skip to content</a>
 <header class="masthead"><div class="wrap masthead-inner">
   <a class="brand" href="${multi ? esc(href("")) : "#top"}">${c.logo ? `<img src="${esc(c.logo)}" alt="" class="brand-logo">` : ""}<span>${esc(c.name)}</span></a>
@@ -135,6 +137,10 @@ figcaption{margin-top:1rem;color:var(--muted);font-weight:600}figcaption::before
 @media (prefers-reduced-motion:no-preference){.hero-copy{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}.hero-art{animation:rise .7s .12s cubic-bezier(.2,.7,.2,1) both}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}}}
 
+/* Coloured header and footer: they set their own ink, so every preset's rules and links follow */
+.has-header .masthead{--ink:var(--header-ink);--rule:color-mix(in srgb,var(--header-ink) 30%,transparent);background:var(--header-bg);color:var(--ink);backdrop-filter:none;border-bottom-color:transparent}
+.has-footer .foot{--ink:var(--footer-ink);--muted:var(--footer-ink);background:var(--footer-bg);color:var(--footer-ink);border-top:0}
+
 /* Civic: calm, serif display, thin rules, a coloured underline as the only flourish */
 .p-civic h2::after{content:"";display:block;width:3rem;height:3px;background:var(--primary);margin-top:.5em}
 .p-civic.dark h2::after{background:var(--ink)}
@@ -184,9 +190,28 @@ figcaption{margin-top:1rem;color:var(--muted);font-weight:600}figcaption::before
 .p-warm .cta .cta-inner{background:var(--primary);border-radius:var(--radius);padding:2.5rem}.p-warm .cta{background:none;color:var(--on-primary)}
 .p-warm .faq details{border:0;background:var(--tint);border-radius:calc(var(--radius) * .7);padding:1rem 1.25rem;margin-bottom:.6rem}
 
+/* Modern: clean sans-serif, generous space, outlined boxes and one bold accent bar */
+.p-modern h1,.p-modern h2{font-weight:800;letter-spacing:-.035em}.p-modern h1{font-size:clamp(2.6rem,7vw,5.25rem)}
+.p-modern .masthead{border-bottom:0}.p-modern .brand{font-weight:800;letter-spacing:-.02em}
+.p-modern .nav a{opacity:.75}.p-modern .nav a:hover,.p-modern .nav a[aria-current=page]{opacity:1}
+.p-modern .hero h1::after{content:"";display:block;width:4.5rem;height:6px;margin-top:.35em;border-radius:3px;background:var(--accent)}
+.p-modern .card{border:1px solid var(--rule);border-radius:var(--radius);padding:1.6rem}
+.p-modern .stat dd,.p-modern blockquote{font-weight:800;letter-spacing:-.03em}
+.p-modern .faq details{border:1px solid var(--rule);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:.6rem}
+
+/* Magazine: large serif headlines, italic subheads, thin rules like a printed feature */
+.p-magazine h1{font-weight:500;font-size:clamp(2.8rem,8vw,6rem);letter-spacing:-.035em;line-height:1}
+.p-magazine h2{font-weight:500;font-style:italic;letter-spacing:-.02em}
+.p-magazine .brand{font-family:var(--head);font-weight:700;font-size:1.35rem}
+.p-magazine .nav a{font-size:.8rem;text-transform:uppercase;letter-spacing:.12em}
+.p-magazine .hero{border-bottom:1px solid var(--rule)}.p-magazine .lede{font-family:var(--head);font-style:italic;font-size:clamp(1.3rem,2.4vw,1.6rem)}
+.p-magazine .card{border-top:1px solid var(--ink);padding-top:1.1rem}.p-magazine .card h3{font-family:var(--head);font-style:italic;font-weight:500;font-size:1.5rem}
+.p-magazine blockquote{font-style:italic;font-size:clamp(1.8rem,4vw,2.9rem);line-height:1.15}
+.p-magazine .stat dd{font-weight:500}
+
 @media(max-width:760px){.menu-button{display:block}
 .nav{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;gap:0;padding:.5rem 1.25rem 1rem;background:var(--background);border-bottom:1px solid var(--rule)}
-.nav.open{display:flex}.nav a{padding:.7rem 0}
+.nav.open{display:flex}.nav a{padding:.7rem 0}.has-header .nav{background:var(--header-bg)}
 .p-bulletin .masthead-inner{flex-direction:row;padding:1rem 0}.p-bulletin .brand{font-size:1.4rem}.p-bulletin .nav{border-block:0;margin:0;padding:.5rem 1.25rem 1rem;justify-content:flex-start}
 .hero.has-art .hero-inner,.p-bulletin .hero.has-art .hero-inner,.contact-inner{grid-template-columns:1fr}
 .p-grassroots .cards{border-width:3px}.p-grassroots .card{border-right:0;border-bottom:3px solid var(--ink)}.p-grassroots .card:last-child{border-bottom:0}

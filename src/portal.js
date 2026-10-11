@@ -82,7 +82,7 @@ export function configFromForm(form, previous = {}) {
     name: g(form, "name"),
     theme: { preset: g(form, "preset"), fonts: g(form, "fonts"), radius: g(form, "radius"), rhythm: g(form, "rhythm") },
     logo: form.get("removeLogo") ? "" : prev.logo,
-    colors: { primary: g(form, "primaryColor"), accent: g(form, "accentColor"), background: g(form, "backgroundColor") },
+    colors: colorsFromForm(form),
     sections: sectionsFromForm(form, prev.sections),
     pages: prev.pages,
   };
@@ -142,13 +142,22 @@ export async function handleIntakePost(env, code, form) {
 
 export const plain = (s) => (s?.startsWith("mailto:") ? s.slice(7) : s);
 
-const select = (name, label, options, value, hint = "") => `<label for="${name}">${label}${hint ? ` <span class="hint">${hint}</span>` : ""}</label>
+export const select = (name, label, options, value, hint = "") => `<label for="${name}">${label}${hint ? ` <span class="hint">${hint}</span>` : ""}</label>
 <select id="${name}" name="${name}">${Object.entries(options).map(([k, v]) => `<option value="${k}"${k === value ? " selected" : ""}>${esc(v)}</option>`).join("")}</select>`;
 
 // A colour picker with its hex code beside it; each updates the other.
 export const colorField = (name, label, value) => `<div class="color-field"><label for="${name}">${label}</label>
 <div class="color-pair"><input id="${name}" name="${name}" type="color" value="${value}" oninput="this.nextElementSibling.value=this.value">
 <input type="text" value="${value}" aria-label="${label} hex code" maxlength="7" spellcheck="false" oninput="if(/^#[0-9a-f]{6}$/i.test(this.value))this.previousElementSibling.value=this.value"></div></div>`;
+
+// A header or footer colour: off means it uses the page background.
+const bandField = (name, label, value, fallback) => `<div class="color-field"><label class="inline"><input type="checkbox" name="${name}On" value="1"${value ? " checked" : ""}> Give the ${label.toLowerCase()} its own colour</label>
+${colorField(`${name}Color`, `${label} colour`, value || fallback)}</div>`;
+
+export const colorsFromForm = (form) => ({
+  primary: g(form, "primaryColor"), accent: g(form, "accentColor"), background: g(form, "backgroundColor"),
+  header: form.get("headerOn") ? g(form, "headerColor") : "", footer: form.get("footerOn") ? g(form, "footerColor") : "",
+});
 
 export const imageField = (name, label, current, removeName, hint) => `<label for="${name}">${label} <span class="hint">${hint}</span></label>
 ${current ? `<div class="thumb"><img src="${esc(current)}" alt=""><label class="inline"><input type="checkbox" name="${removeName}" value="1"> Remove</label></div>` : ""}
@@ -172,11 +181,12 @@ ${imageField("logo", "Logo", c.logo, "removeLogo", "PNG, JPG or WebP, under 5 MB
     { id: "look", title: "Style and colours", body: `
 <div class="presets" role="radiogroup" aria-label="Style">${Object.entries(PRESETS).map(([k, v]) => `<label class="preset"><input type="radio" name="preset" value="${k}"${k === preset ? " checked" : ""}><span><strong>${esc(v.label)}</strong><span class="hint">${esc(v.blurb)}</span></span></label>`).join("")}</div>
 <div class="colors">${colorField("primaryColor", "Main colour", c.colors?.primary || "#17324d")}${colorField("accentColor", "Highlight", c.colors?.accent || "#f2b84b")}${colorField("backgroundColor", "Background", c.colors?.background || "#f7f7f3")}</div>
-<p class="hint">Text colour adjusts automatically so it stays readable on whatever you pick.</p>
+<div class="colors">${bandField("header", "Header", c.colors?.header, c.colors?.primary || "#17324d")}${bandField("footer", "Footer", c.colors?.footer, c.colors?.primary || "#17324d")}</div>
+<p class="hint">Text colour adjusts automatically so it stays readable on whatever you pick. The header is the bar with your name and menu; the footer is the strip at the very bottom.</p>
 <details class="more"><summary>Fonts, corners and spacing</summary>
 ${select("fonts", "Fonts", opt(labels(FONT_PAIRS), P.fonts), t.fonts || "")}
 ${select("radius", "Corners", opt(RADII, P.radius), t.radius || "")}
-${select("rhythm", "Space between sections", opt(RHYTHMS, P.rhythm), t.rhythm || "")}</details>` },
+${select("rhythm", "Space between sections", opt(RHYTHMS, P.rhythm), t.rhythm || "", "for the whole site; each extra page can change its own")}</details>` },
     { id: "hero", title: "Top of the page", body: `
 ${field("headline", "Headline", s("hero").heading, { hint: "One short line. If blank, we use your name." })}
 ${field("tagline", "Introduction", s("hero").body, { area: true, hint: "One or two sentences about what you do." })}

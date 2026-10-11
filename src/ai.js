@@ -36,9 +36,9 @@ export const SITE_SCHEMA = obj({
     radius: { type: "string", enum: ["", ...Object.keys(RADII)] },
     rhythm: { type: "string", enum: ["", ...Object.keys(RHYTHMS)] },
   }),
-  colors: obj({ primary: str, accent: str, background: str }),
+  colors: obj({ primary: str, accent: str, background: str, header: str, footer: str }),
   sections: SECTIONS_SCHEMA,
-  pages: { type: "array", items: obj({ title: str, slug: str, sections: SECTIONS_SCHEMA }) },
+  pages: { type: "array", items: obj({ title: str, slug: str, rhythm: { type: "string", enum: ["", ...Object.keys(RHYTHMS)] }, sections: SECTIONS_SCHEMA }) },
 });
 
 const TOOLS = [
@@ -55,9 +55,9 @@ const TOOLS = [
 export const templateGuide = () => `What the template can do:
 - theme.preset, the overall look: ${Object.entries(PRESETS).map(([k, v]) => `"${k}" (${v.blurb})`).join(" ")}
 - theme.fonts / radius / rhythm override the preset; "" means use the preset's choice. fonts: ${Object.entries(FONT_PAIRS).map(([k, v]) => `"${k}" (${v.label})`).join(", ")}. radius: ${Object.keys(RADII).join(", ")}. rhythm (space between sections): ${Object.keys(RHYTHMS).join(", ")}.
-- colors: primary, accent, background, each a 6-digit hex colour like #17324d. Text and buttons adjust automatically to stay readable.
+- colors: primary, accent, background, each a 6-digit hex colour like #17324d; header and footer are optional colours for the top bar (name and menu) and the bottom strip, "" to use the background. Text and buttons adjust automatically to stay readable.
 - sections: the home page, rendered top to bottom (at most 20). Types: hero (headline and intro; exactly one, first; buttons: true or false shows or hides its "Learn more" and "Get in touch" buttons, null leaves the default — shown on home, hidden on other pages), text (paragraphs separated by a blank line; for long copy), cards (up to 6 short items, each a title and a paragraph), stats (up to 4 figures), quote, faq (up to 8), cta (a banner with one button; link must be https://… or an email address), contact (email, phone, location). Empty sections are hidden. Use "" for empty fields.
-- pages: extra pages besides home, at most ${MAX_PAGES}, in menu order. Each has a title (the menu tab, short), a slug (its web address: lowercase letters, numbers and dashes, e.g. "about" for /about; keep an existing page's slug unless asked to change it) and its own sections, starting with a hero whose heading is usually the page title. With no pages the menu scrolls down the home page; with pages the menu shows Home plus each page. A home page that links on to other pages can be short: a hero, maybe a short intro.`;
+- pages: extra pages besides home, at most ${MAX_PAGES}, in menu order. Each has a title (the menu tab, short), a rhythm ("" for the site's spacing, or one of the rhythm values for that page only), a slug (its web address: lowercase letters, numbers and dashes, e.g. "about" for /about; keep an existing page's slug unless asked to change it) and its own sections, starting with a hero whose heading is usually the page title. With no pages the menu scrolls down the home page; with pages the menu shows Home plus each page. A home page that links on to other pages can be short: a hero, maybe a short intro.`;
 
 const system = (siteName) => `You are the website assistant for ${siteName || "a community organization"}. Volunteers from the organization talk to you in one shared conversation; each message starts with the sender's name. The website is a JSON settings file rendered by a fixed template. You change the private draft with your tools; people review the preview and publish it themselves — you cannot publish.
 
