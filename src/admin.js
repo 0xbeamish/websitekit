@@ -59,8 +59,8 @@ ${invites.length ? `<ul class="invites">${inviteRows}</ul>` : ""}
 <p class="lead">Approving makes the site answer on its domain, but the domain still has to be connected by hand: add the domain in Cloudflare, copy every email record (MX, SPF, DKIM, DMARC) first, attach the domain and <code>www</code> to the <code>websitekit</code> Worker, then switch nameservers at the registrar.</p>`);
 }
 
-// Requests waiting for review, each with the GitHub issue it would become. Sending is the approval: the
-// issue mentions @claude, so the workflow drafts a pull request (and spends API credit).
+// Requests file themselves to GitHub (src/requests.js); these are the ones that didn't — over the daily cap or
+// a GitHub error — each with the issue it would become. Sending mentions @claude, which spends API credit.
 function requestsSection(env, requests) {
   const waiting = requests.filter((r) => r.status === "new"), sent = requests.filter((r) => r.status === "sent");
   if (!requests.length) return "";

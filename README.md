@@ -61,6 +61,10 @@ Add `https://<portal host>/mcp` as a custom connector (an MCP server) in your AI
 
 Anyone removed from a site's editors loses access through their AI app at once, since access is checked on every call.
 
+## Feature requests
+
+When someone asks the assistant (or a connected AI app) for something the template can't do, it offers to pass the request on. With the person's agreement it opens a public GitHub issue — only the title and description, never the site or the person — that mentions `@claude`, and `.github/workflows/claude.yml` drafts a pull request. A maintainer reviews and merges; nothing deploys on its own. At most 5 issues are filed automatically per day; the rest wait on `/admin` to be sent by hand. Set `GITHUB_REPO`, the `GITHUB_TOKEN` secret (a fine-grained token with Issues: write), the Claude GitHub app and the repository's `ANTHROPIC_API_KEY` secret to turn this on.
+
 ## Contributing
 
 Issues and pull requests are welcome. Keep the editor usable by a volunteer who has never seen it: plain words, no jargon, nothing that publishes without a person pressing Publish. Every new field goes through `normalize()` in `src/schema.js`.

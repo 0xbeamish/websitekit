@@ -1,10 +1,12 @@
 import { logActivity } from "./editor.js";
 
 // Feature requests: what people ask for that the template can't do. The assistant (or a connected AI app)
-// records one when the person agrees; an admin reads it at /admin and may send it to GitHub, where an
-// issue that mentions @claude gets a drafted pull request. Nothing reaches GitHub without the admin.
+// records one when the person agrees and files it straight to GitHub as an issue that mentions @claude, which
+// drafts a pull request. The issue carries only the title and description — no site, no person — because the
+// repo is public. Past the daily cap, requests wait at /admin to be sent by hand.
 
 const OPEN_PER_SITE = 10; // unreviewed requests a site can have waiting
+const AUTO_FILED_PER_DAY = 5; // across all sites: each filed issue starts a paid Claude run
 
 export async function saveRequest(env, { siteId, editorId, via, title, details }) {
   title = String(title || "").trim().slice(0, 120);
@@ -12,10 +14,14 @@ export async function saveRequest(env, { siteId, editorId, via, title, details }
   if (!title || !details) return "A request needs a short title and a description of what's wanted.";
   const open = await env.DB.prepare("SELECT COUNT(*) AS n FROM feature_requests WHERE site_id = ? AND status = 'new'").bind(siteId).first();
   if (open.n >= OPEN_PER_SITE) return `This site already has ${OPEN_PER_SITE} requests waiting for review, so this one wasn't added. Try again once those have been looked at.`;
-  await env.DB.prepare("INSERT INTO feature_requests (site_id, editor_id, via, title, details) VALUES (?, ?, ?, ?, ?)")
-    .bind(siteId, editorId || null, String(via).slice(0, 80), title, details).run();
+  const row = await env.DB.prepare("INSERT INTO feature_requests (site_id, editor_id, via, title, details) VALUES (?, ?, ?, ?, ?) RETURNING id")
+    .bind(siteId, editorId || null, String(via).slice(0, 80), title, details).first();
   await logActivity(env, siteId, editorId || null, "suggested", title);
-  return "Passed on to the people who look after Website Kit. They read every request and decide what gets built; it isn't guaranteed or immediate.";
+  if (githubReady(env)) {
+    const today = await env.DB.prepare("SELECT COUNT(*) AS n FROM feature_requests WHERE status = 'sent' AND created_at > datetime('now', '-1 day')").first();
+    if (today.n < AUTO_FILED_PER_DAY) await sendToGitHub(env, row.id, title, defaultIssueBody({ via, details })); // a failure leaves it waiting at /admin
+  }
+  return "Passed on to the people who build Website Kit. A first draft of the change gets started automatically, and someone reviews it before anything changes on your site — so it isn't guaranteed or immediate.";
 }
 
 export const githubReady = (env) => Boolean(env.GITHUB_TOKEN && env.GITHUB_REPO);
