@@ -6,7 +6,7 @@ import { field, imageField, plain, select, siteGroups, storeImage, sectionErrors
 // position (s3_heading, s3_it1_title); s3_from says which saved section a panel started as, so fields the form
 // doesn't show (kickers, photos) carry over. Move, remove and add ride on the same submit as Save, so typed edits survive.
 
-export const SECTION_LABEL = { hero: "Top of the page", text: "Text", cards: "Cards", stats: "Numbers", quote: "Quote", faq: "Questions", cta: "Banner with a button", contact: "Contact" };
+export const SECTION_LABEL = { hero: "Top of the page", text: "Text", cards: "Cards", stats: "Numbers", quote: "Quote", faq: "Questions", cta: "Banner with a button", contact: "Contact", form: "Message form" };
 export const ADDABLE = Object.keys(SECTION_LABEL).filter((t) => t !== "hero");
 const MAX_SECTIONS = 20;
 
@@ -20,6 +20,8 @@ const FIELDS = {
   faq: [["heading", "Heading"]],
   cta: [["heading", "Heading", false, "For example “Join the union”."], ["body", "One sentence under it"], ["button", "Button text"], ["link", "Where the button goes", false, "A web address starting with https://, or an email address."]],
   contact: [["heading", "Heading"], ["body", "A line inviting people to get in touch", true], ["email", "Public email address"], ["phone", "Phone"], ["location", "City or address"]],
+  form: [["heading", "Heading", false, "For example “Send us a message”."], ["body", "A line above the form", true, "Visitors fill in their name, email address and message. Messages show under “Messages from your website” on this editing page. They aren’t emailed to you."],
+    ["button", "Button text", false, "If blank: “Send message”."], ["thanks", "Thank-you message", false, "Shown after someone sends a message. If blank: “Thanks — your message has been sent.”"]],
 };
 // Repeating items: [max, item name, [key, label, textarea?]]
 const ITEMS = {
@@ -63,7 +65,7 @@ export function editorGroups(cfg, { page = null, add = "" } = {}) {
   const sections = (page ? page.sections : cfg.sections || []).map((s, i) => ({ ...s, _from: s._from ?? i }));
   if (ADDABLE.includes(add) && sections.length < MAX_SECTIONS) {
     const at = sections.at(-1)?.type === "contact" && add !== "contact" ? sections.length - 1 : sections.length; // keep Contact last
-    sections.splice(at, 0, { type: add, _from: "", _new: true });
+    sections.splice(at, 0, { type: add, _from: "", _new: true, ...(add === "form" ? { heading: "Send us a message" } : {}) }); // a form is ready to use as added
   }
   const head = page
     ? [{ id: "page", title: "Page name and address", body: `

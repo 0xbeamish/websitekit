@@ -25,6 +25,7 @@ const SECTION_SCHEMAS = [
   obj({ type: { const: "faq" }, heading: str, items: items({ q: str, a: str }) }),
   obj({ type: { const: "cta" }, heading: str, body: str, button: str, link: str }),
   obj({ type: { const: "contact" }, heading: str, body: str, email: str, phone: str, location: str }),
+  obj({ type: { const: "form" }, heading: str, body: str, button: str, thanks: str }),
 ];
 
 const SECTIONS_SCHEMA = { type: "array", items: { anyOf: SECTION_SCHEMAS } };
@@ -56,7 +57,7 @@ export const templateGuide = () => `What the template can do:
 - theme.preset, the overall look: ${Object.entries(PRESETS).map(([k, v]) => `"${k}" (${v.blurb})`).join(" ")}
 - theme.fonts / radius / rhythm override the preset; "" means use the preset's choice. fonts: ${Object.entries(FONT_PAIRS).map(([k, v]) => `"${k}" (${v.label})`).join(", ")}. radius: ${Object.keys(RADII).join(", ")}. rhythm (space between sections): ${Object.keys(RHYTHMS).join(", ")}.
 - colors: primary, accent, background, each a 6-digit hex colour like #17324d; header and footer are optional colours for the top bar (name and menu) and the bottom strip, "" to use the background. Text and buttons adjust automatically to stay readable.
-- sections: the home page, rendered top to bottom (at most 20). Types: hero (headline and intro; exactly one, first; buttons: true or false shows or hides its "Learn more" and "Get in touch" buttons, null leaves the default — shown on home, hidden on other pages), text (paragraphs separated by a blank line; for long copy), cards (up to 6 short items, each a title and a paragraph), stats (up to 4 figures), quote, faq (up to 8), cta (a banner with one button; link must be https://… or an email address), contact (email, phone, location). Empty sections are hidden. Use "" for empty fields.
+- sections: the home page, rendered top to bottom (at most 20). Types: hero (headline and intro; exactly one, first; buttons: true or false shows or hides its "Learn more" and "Get in touch" buttons, null leaves the default — shown on home, hidden on other pages), text (paragraphs separated by a blank line; for long copy), cards (up to 6 short items, each a title and a paragraph), stats (up to 4 figures), quote, faq (up to 8), cta (a banner with one button; link must be https://… or an email address), contact (email, phone, location), form (a message form where visitors type their name, email address and message; heading is required, body is a line above it, button and thanks are the button text and the thank-you line, "" for the defaults "Send message" and "Thanks — your message has been sent."; messages are kept on the editing page under "Messages from your website", not emailed, and the form only sends on the published site). Empty sections are hidden. Use "" for empty fields.
 - pages: extra pages besides home, at most ${MAX_PAGES}, in menu order. Each has a title (the menu tab, short), a rhythm ("" for the site's spacing, or one of the rhythm values for that page only), a slug (its web address: lowercase letters, numbers and dashes, e.g. "about" for /about; keep an existing page's slug unless asked to change it) and its own sections, starting with a hero whose heading is usually the page title. With no pages the menu scrolls down the home page; with pages the menu shows Home plus each page. A home page that links on to other pages can be short: a hero, maybe a short intro.`;
 
 const system = (siteName) => `You are the website assistant for ${siteName || "a community organization"}. Volunteers from the organization talk to you in one shared conversation; each message starts with the sender's name. The website is a JSON settings file rendered by a fixed template. You change the private draft with your tools; people review the preview and publish it themselves — you cannot publish.
@@ -69,7 +70,7 @@ How to work:
 - If a request is unclear or could mean very different things, ask one short question first.
 - Photos and the logo are uploaded through the editor's form; you can't change them, but they stay attached.
 - If someone shares a document of website copy, build the site from it: one page per part it lists (the first or "Home" part goes in sections), using their wording word for word — split long text into paragraphs, but don't rewrite, shorten or add to it. Parts that hold notes about the website rather than copy (like "I'll add a form here" or "leave this blank for now") are instructions: follow them where the template can, and tell them which ones it can't do. Don't stop to ask about the copy; save the whole site in one go, then sum up.
-- If something is beyond the template (custom code, new kinds of sections, galleries, payments, contact or sign-up forms, file downloads), say so, suggest what is possible now, and offer to pass the request on to the people who build Website Kit. Call suggest_feature only once they say yes; don't promise it will be built.
+- If something is beyond the template (custom code, new kinds of sections, galleries, payments, sign-up forms or forms with other fields than the message form, emailing messages, file downloads), say so, suggest what is possible now, and offer to pass the request on to the people who build Website Kit. Call suggest_feature only once they say yes; don't promise it will be built.
 - Reply in plain, warm language, two or three short sentences, no markdown. After saving, say what changed and remind them to check the preview and press Publish when they're happy.
 - Keep the organization's spelling (for example Canadian "Centre", "colour").`;
 
@@ -93,7 +94,7 @@ export const withMedia = (current, site) => {
 };
 
 // Which parts of the page differ, in the editor's own words. Used for the activity log and tool results.
-const PART = { hero: "Top of the page", text: "About", cards: "What you do", stats: "Numbers", quote: "Quote", faq: "Questions", cta: "Banner", contact: "Contact" };
+const PART = { hero: "Top of the page", text: "About", cards: "What you do", stats: "Numbers", quote: "Quote", faq: "Questions", cta: "Banner", contact: "Contact", form: "Message form" };
 export function describeChanges(before, after) {
   const a = normalize(before), b = normalize(after), out = [];
   if (a.name !== b.name || a.logo !== b.logo) out.push("Name and logo");

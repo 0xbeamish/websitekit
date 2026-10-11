@@ -58,6 +58,8 @@ const SECTIONS = {
     type: "contact", heading: clip(s.heading, 120), body: clip(s.body, 600),
     email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email || "") ? clip(s.email, 200) : "", phone: clip(s.phone, 60), location: clip(s.location, 160),
   }),
+  // A message form (name, email, message). Messages are stored for the editors; button and thanks "" = the default wording.
+  form: (s) => ({ type: "form", heading: clip(s.heading, 120), body: clip(s.body, 600), button: clip(s.button, 40), thanks: clip(s.thanks, 300) }),
 };
 
 const hasContent = {
@@ -69,6 +71,7 @@ const hasContent = {
   faq: (s) => s.items.length,
   cta: (s) => s.heading && s.button && s.link,
   contact: (s) => s.email || s.phone || s.location || s.body,
+  form: (s) => s.heading,
 };
 
 export const MAX_PAGES = 8; // extra pages besides home; each is a tab in the menu

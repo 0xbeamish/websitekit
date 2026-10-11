@@ -3,6 +3,7 @@ import { normalize, toSlug, uniqueSlug, MAX_PAGES } from "./schema.js";
 import { editorGroups, buildEditorForm } from "./editorform.js";
 import { describeChanges, PER_SITE_DAILY } from "./ai.js";
 import { addEditor, makeHandoff, googleReady } from "./auth.js";
+import { messageRows, messagesPanel, messagesPost } from "./messages.js";
 
 // /edit for one site. Every change lands in the draft; Publish copies the draft to the live site and
 // records a version. draft_rev guards against two people (or a person and the assistant) overwriting each other.
@@ -98,6 +99,9 @@ dialog::backdrop{background:rgba(31,35,40,.45)}
 .section-tools{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s4);padding-top:var(--s3);border-top:1px solid var(--line)}
 .add-section{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin:var(--s3) 0 0 22px}.add-section label{margin:0;font-weight:700}.add-section select{width:auto;flex:1;min-width:10rem}
 .default-submit{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.inbox{list-style:none;padding:0;margin:0 0 var(--s3)}.inbox li{padding:var(--s3) 0;border-top:1px solid var(--line)}.inbox li.new{border-left:3px solid var(--attention);padding-left:var(--s3)}
+.inbox .email{font-size:var(--t-sm);color:var(--muted);overflow-wrap:anywhere}.inbox .text{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:var(--s2)}
+.msg-tools{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s2)}.msg-tools form{margin:0}
 .page-tools{display:flex;flex-wrap:wrap;gap:var(--s2);margin:var(--s3) 0 var(--s5)}
 @media(max-width:900px){
  .top{padding:var(--s2) var(--s4);flex-wrap:wrap}.top .view{display:none}
@@ -181,6 +185,8 @@ const DONE = {
   pageAdded: () => "Page added to your draft. Fill it in below — it appears in the menu once you publish.",
   pageRemoved: () => "Page removed from your draft. It disappears from the live site when you publish.",
   pageMoved: () => "Menu order changed in your draft.",
+  messagesRead: () => "All messages marked as read.",
+  messageDeleted: () => "Message deleted.",
 };
 export const doneMessage = (key, site) => (DONE[key] ? { flash: DONE[key](site), tone: "good", openShare: key === "removed" } : {});
 
@@ -216,12 +222,13 @@ export async function editorView(env, ctx, { flash = "", tone = "", errors = [],
   const { site, editor, base } = ctx;
   const live = site.status === "live";
   const unpublished = (site.draft || site.config) !== site.config;
-  const [{ results: people }, { results: versions }, canUndo, { results: activity }, thread] = await Promise.all([
+  const [{ results: people }, { results: versions }, canUndo, { results: activity }, thread, inbox] = await Promise.all([
     env.DB.prepare("SELECT id, name, email, role, is_admin FROM editors WHERE site_id = ? AND revoked_at IS NULL ORDER BY is_admin, role = 'owner' DESC, created_at").bind(site.id).all(),
     env.DB.prepare("SELECT v.id, v.created_at, e.name, e.email FROM site_versions v LEFT JOIN editors e ON e.id = v.editor_id WHERE v.site_id = ? ORDER BY v.id DESC LIMIT 10").bind(site.id).all(),
     env.DB.prepare("SELECT 1 FROM ai_edits WHERE site_id = ? AND undone = 0 AND after_rev = ?").bind(site.id, site.draft_rev).first(),
     env.DB.prepare("SELECT a.kind, a.detail, a.created_at, COALESCE(e.name, e.email, 'Someone') AS who FROM activity a LEFT JOIN editors e ON e.id = a.editor_id WHERE a.site_id = ? ORDER BY a.id DESC LIMIT 15").bind(site.id).all(),
     threadRows(env, site.id),
+    messageRows(env, site.id),
   ]);
   const cfg = formConfig || draftOf(site);
   const pages = normalize(cfg).pages;
@@ -243,6 +250,7 @@ export async function editorView(env, ctx, { flash = "", tone = "", errors = [],
   ].join("");
   const stale = `<div class="msg warn stale" hidden role="status">The draft has changed since you opened this page. <button type="button" class="btn small" data-reload>Show the latest</button></div>`;
   const form = editorGroups(cfg, { page: current, add });
+  const hasForm = [draftOf(site), JSON.parse(site.config)].map(normalize).some((c) => [c, ...c.pages].some((p) => p.sections.some((s) => s.type === "form")));
   const groups = form.groups.map((g) => `<details class="group" id="g-${g.id}"${g.open ? " open data-new" : ""}><summary>${esc(g.title)}${g.chip && g.chip !== g.title ? `<span class="chip">${esc(g.chip)}</span>` : ""}</summary><div class="group-body">${g.body}</div></details>`).join("");
 
   const body = `
@@ -272,6 +280,7 @@ export async function editorView(env, ctx, { flash = "", tone = "", errors = [],
   ${current ? `<div class="page-tools">${["left", "right"].map((d) => `<form method="post" action="${base}/pages/move">${rev}<input type="hidden" name="page" value="${esc(current.slug)}"><input type="hidden" name="dir" value="${d}"><button class="btn small">Move ${d} in the menu</button></form>`).join("")}
     <form method="post" action="${base}/pages/remove" data-confirm="Remove the “${esc(current.title)}” page and everything on it from your draft?">${rev}<input type="hidden" name="page" value="${esc(current.slug)}"><button class="btn small danger">Remove this page</button></form></div>` : ""}
 
+  ${hasForm || inbox.length ? messagesPanel(inbox, { base, siteName: cfg.name, ago }) : ""}
   <details class="group" id="g-activity"><summary>Recent activity</summary><div class="group-body">${activity.length
     ? `<ul class="history">${activity.map((a) => `<li><span><strong>${esc(a.who)}</strong> ${esc((ACTIVITY[a.kind] || ((d) => d))(a.detail))}</span><span class="hint">${esc(ago(a.created_at))}</span></li>`).join("")}</ul>`
     : `<p class="hint">Nothing yet. Saves, publishes and assistant changes by anyone on your team will show here.</p>`}</div></details>
@@ -383,6 +392,8 @@ export async function editorPost(env, ctx, action, form) {
     await logActivity(env, site.id, editor.id, "pages", detail);
     return { done, page: keep };
   }
+
+  if (action.startsWith("messages/")) return messagesPost(env, site, action);
 
   if (action === "undo") {
     const last = await env.DB.prepare("SELECT id, before_config FROM ai_edits WHERE site_id = ? AND undone = 0 AND after_rev = ? ORDER BY id DESC LIMIT 1")

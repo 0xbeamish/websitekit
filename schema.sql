@@ -137,3 +137,16 @@ CREATE TABLE IF NOT EXISTS feature_requests (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS feature_requests_status ON feature_requests (status, id);
+
+-- What visitors send through a site's message form (src/messages.js). Editors read them on /edit; nothing is emailed.
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  site_id TEXT NOT NULL REFERENCES sites(id),
+  page TEXT NOT NULL DEFAULT '',      -- title of the page it was sent from; '' = home
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  message TEXT NOT NULL,
+  read_at TEXT,                       -- NULL until someone on the team marks it read
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS contact_messages_site ON contact_messages(site_id, id);

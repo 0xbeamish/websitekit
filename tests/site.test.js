@@ -72,6 +72,13 @@ test("saving the editor form without edits changes nothing", async () => {
   }
 });
 
+test("a message form saves without edits unchanged, and its wording can be edited", async () => {
+  const withForm = { ...SITE, pages: [...SITE.pages, { title: "Join", slug: "join", sections: [{ type: "hero", heading: "Join" }, { type: "form", heading: "Write to us", thanks: "We’ll be in touch." }] }] };
+  assert.deepEqual((await submit(withForm, "join")).config, normalize(withForm));
+  const r = await submit(withForm, "join", { s1_button: "Send" });
+  assert.equal(page(r.config, "join").sections[1].button, "Send");
+});
+
 test("every section is editable, movable and removable", async () => {
   let r = await submit(SITE, "programs", { s2_heading: "Repair help" });
   assert.equal(page(r.config, "programs").sections[2].heading, "Repair help");
