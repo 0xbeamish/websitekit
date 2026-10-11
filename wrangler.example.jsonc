@@ -1,0 +1,32 @@
+{
+  "name": "websitekit",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["global_fetch_strictly_public"], // the connector fetches AI apps' client metadata documents; never let that reach private addresses
+  "workers_dev": true, // the portal lives on workers.dev; adding routes would otherwise switch it off
+  "preview_urls": false,
+  "account_id": "<your Cloudflare account id>",
+  "vars": {
+    "PORTAL_HOST": "websitekit.<your-subdomain>.workers.dev", // Google sign-in redirects back here; change it (and the Google client) if the portal gets its own domain
+    "GOOGLE_CLIENT_ID": "<your Google OAuth client id>.apps.googleusercontent.com", // OAuth client ID (not secret); GOOGLE_CLIENT_SECRET is a secret
+    "ADMIN_EMAILS": "you@example.org", // comma-separated; these Google accounts can open /admin and edit every site
+    "OPERATOR_NAME": "Your name or organization", // shown on /privacy as who runs this deployment
+    "OPERATOR_EMAIL": "you@example.org" // shown on /privacy for deletion requests
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "websitekit", "database_id": "<id from: npx wrangler d1 create websitekit>" }
+  ],
+  // Each org domain (and its www) is attached here as a Workers Custom Domain.
+  "routes": [
+    { "pattern": "example.org", "custom_domain": true },
+    { "pattern": "www.example.org", "custom_domain": true }
+  ],
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "websitekit-media" }
+  ],
+  // Sign-in grants and tokens for AI apps connected through /mcp (src/connector.js). Create with: npx wrangler kv namespace create OAUTH_KV
+  "kv_namespaces": [
+    { "binding": "OAUTH_KV", "id": "<id from: npx wrangler kv namespace create OAUTH_KV>" }
+  ]
+  // ADMIN_PASSWORD is a secret: npx wrangler secret put ADMIN_PASSWORD
+}
