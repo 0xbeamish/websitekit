@@ -122,3 +122,18 @@ CREATE TABLE IF NOT EXISTS activity (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS activity_site ON activity(site_id, id);
+
+-- Things people asked for that the template can't do yet. An admin reviews each one and can send it to
+-- GitHub as an issue, where Claude drafts the change as a pull request (.github/workflows/claude.yml).
+CREATE TABLE IF NOT EXISTS feature_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  site_id TEXT NOT NULL REFERENCES sites(id),
+  editor_id TEXT REFERENCES editors(id),
+  via TEXT NOT NULL, -- "the website assistant", or the connected AI app's name
+  title TEXT NOT NULL,
+  details TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'sent', 'dismissed')),
+  issue_url TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS feature_requests_status ON feature_requests (status, id);

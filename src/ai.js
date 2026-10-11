@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { saveRequest } from "./requests.js";
 import { normalize, section, PRESETS, FONT_PAIRS, RADII, RHYTHMS, MAX_PAGES } from "./schema.js";
 
 // The site assistant: one shared conversation per site, which reads and edits the draft through two tools
@@ -46,6 +47,8 @@ const TOOLS = [
   // Not strict: with pages the schema is past strict mode's grammar limit; normalize() still cleans every save.
   { name: "save_draft", description: "Replace the draft with complete, updated settings, including every page. Copy every part you are not changing exactly as get_draft returned it. Returns which parts of the site changed.",
     input_schema: obj({ site: SITE_SCHEMA }) },
+  { name: "suggest_feature", description: "Pass a request for something the website can't do yet to the people who build Website Kit. Only after the person agrees to pass it on.", strict: true,
+    input_schema: obj({ title: { type: "string", description: "A few plain words, like \"Contact form on a page\"" }, details: { type: "string", description: "What they want, what it's for, and how they'd expect it to work, in plain words. No names, emails or other personal details." } }) },
 ];
 
 // What the template can do, shared by the built-in assistant and the connector for outside agents (src/connector.js).
@@ -66,7 +69,7 @@ How to work:
 - If a request is unclear or could mean very different things, ask one short question first.
 - Photos and the logo are uploaded through the editor's form; you can't change them, but they stay attached.
 - If someone shares a document of website copy, build the site from it: one page per part it lists (the first or "Home" part goes in sections), using their wording word for word — split long text into paragraphs, but don't rewrite, shorten or add to it. Parts that hold notes about the website rather than copy (like "I'll add a form here" or "leave this blank for now") are instructions: follow them where the template can, and tell them which ones it can't do. Don't stop to ask about the copy; save the whole site in one go, then sum up.
-- If something is beyond the template (custom code, new kinds of sections, galleries, payments, contact or sign-up forms, file downloads), say so and suggest what is possible.
+- If something is beyond the template (custom code, new kinds of sections, galleries, payments, contact or sign-up forms, file downloads), say so, suggest what is possible now, and offer to pass the request on to the people who build Website Kit. Call suggest_feature only once they say yes; don't promise it will be built.
 - Reply in plain, warm language, two or three short sentences, no markdown. After saving, say what changed and remind them to check the preview and press Publish when they're happy.
 - Keep the organization's spelling (for example Canadian "Centre", "colour").`;
 
@@ -165,6 +168,8 @@ export async function assistantTurn(env, siteId, editor, text, siteName) {
       changedParts = [...new Set([...changedParts, ...parts])];
       return `Saved. Changed: ${parts.join(", ")}.`;
     }
+    if (block.name === "suggest_feature")
+      return saveRequest(env, { siteId, editorId: editor.id, via: "the website assistant", title: block.input.title, details: block.input.details });
     return "Unknown tool.";
   };
 

@@ -11,7 +11,8 @@
     "GOOGLE_CLIENT_ID": "<your Google OAuth client id>.apps.googleusercontent.com", // OAuth client ID (not secret); GOOGLE_CLIENT_SECRET is a secret
     "ADMIN_EMAILS": "you@example.org", // comma-separated; these Google accounts can open /admin and edit every site
     "OPERATOR_NAME": "Your name or organization", // shown on /privacy as who runs this deployment
-    "OPERATOR_EMAIL": "you@example.org" // shown on /privacy for deletion requests
+    "OPERATOR_EMAIL": "you@example.org", // shown on /privacy for deletion requests
+    "GITHUB_REPO": "<owner>/<repo>" // where /admin sends feature requests as issues; needs the GITHUB_TOKEN secret (Issues: write)
   },
   "d1_databases": [
     { "binding": "DB", "database_name": "websitekit", "database_id": "<id from: npx wrangler d1 create websitekit>" }

@@ -7,6 +7,7 @@ import { normalize } from "./schema.js";
 import { templateGuide, forModel, withMedia, describeChanges } from "./ai.js";
 import { googleAuthUrl, googleIdentity, isAdminEmail, ensureAdminEditor, portalOrigin } from "./auth.js";
 import { messagePage, logActivity } from "./editor.js";
+import { saveRequest } from "./requests.js";
 
 // Lets outside agents (Claude, ChatGPT, anything that speaks MCP) read sites and change drafts for the
 // person who connects them. Sign-in is OAuth: this worker is the authorization server, Google proves who
@@ -126,7 +127,8 @@ How to work:
 - Never invent facts — no made-up numbers, quotes, names, dates, addresses, phone numbers or links. Ask the person instead.
 - When given website copy, use its wording as written. Notes about the website (like "I'll add a form here") are instructions, not text to publish.
 - Photos and logos are uploaded in the editor; they stay attached when you save.
-- After saving, tell the person what changed and give them the editor link so they can check the preview and press Publish.`;
+- After saving, tell the person what changed and give them the editor link so they can check the preview and press Publish.
+- If they want something the template can't do, say so, suggest what's possible now, and offer to pass it on with suggest_feature (only once they agree).`;
 
 export function server(env, props) { // exported for tests
   const s = new McpServer({ name: "Website Kit", version: "1.0.0" }, { instructions: INSTRUCTIONS });
@@ -180,6 +182,16 @@ export function server(env, props) { // exported for tests
       : (await env.DB.prepare("SELECT id FROM editors WHERE site_id = ? AND email = ? AND revoked_at IS NULL").bind(site_id, props.email).first())?.id;
     await logActivity(env, site_id, editor, "agent", `${props.client}: ${parts.join(", ")}`);
     return reply({ saved: true, rev: rev + 1, changed: parts, next_step: `Ask the person to check the preview and press Publish at ${editorUrl(env, x)}` });
+  });
+
+  s.registerTool("suggest_feature", {
+    title: "Suggest a new feature",
+    description: "Pass a request for something the website can't do yet to the people who build Website Kit. Only after the person agrees. No names, emails or other personal details.",
+    inputSchema: { site_id: z.string(), title: z.string().describe("A few plain words"), details: z.string().describe("What they want, what it's for, how they'd expect it to work") },
+  }, async ({ site_id, title, details }) => {
+    if (!(await sitesFor(env, props.email)).some((r) => r.id === site_id)) return fail("No website with that site_id that you can edit. Call list_sites.");
+    const editor = await env.DB.prepare("SELECT id FROM editors WHERE site_id = ? AND email = ? AND revoked_at IS NULL").bind(site_id, props.email).first();
+    return reply(await saveRequest(env, { siteId: site_id, editorId: editor?.id, via: props.client, title, details }));
   });
 
   return s;

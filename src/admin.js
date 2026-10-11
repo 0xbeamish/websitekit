@@ -2,6 +2,7 @@ import { esc, portalShell } from "./html.js";
 import { randomId, normalizeDomain } from "./portal.js";
 import { publish } from "./editor.js";
 import { addEditor, makeHandoff, normEmail } from "./auth.js";
+import { githubReady, defaultIssueBody, sendToGitHub } from "./requests.js";
 
 // Basic auth against the ADMIN_PASSWORD secret; username is ignored.
 export function isAdmin(request, env) {
@@ -21,10 +22,11 @@ export const challenge = () =>
   new Response("Admin login required", { status: 401, headers: { "www-authenticate": 'Basic realm="websitekit admin"' } });
 
 export async function adminView(env, origin, flash = "") {
-  const [{ results: sites }, { results: invites }, { results: owners }] = await Promise.all([
+  const [{ results: sites }, { results: invites }, { results: owners }, { results: requests }] = await Promise.all([
     env.DB.prepare("SELECT id, slug, status, domain, COALESCE(draft, config) AS config, submitter_name, submitter_email, updated_at FROM sites ORDER BY status = 'pending' DESC, updated_at DESC").all(),
     env.DB.prepare("SELECT code, label, created_at, site_id FROM invites ORDER BY created_at DESC LIMIT 50").all(),
     env.DB.prepare("SELECT site_id, email FROM editors WHERE role = 'owner' AND revoked_at IS NULL").all(),
+    env.DB.prepare("SELECT r.*, COALESCE(s.draft, s.config) AS config, e.email FROM feature_requests r JOIN sites s ON s.id = r.site_id LEFT JOIN editors e ON e.id = r.editor_id WHERE r.status = 'new' OR r.id IN (SELECT id FROM feature_requests WHERE status = 'sent' ORDER BY id DESC LIMIT 10) ORDER BY r.status = 'new' DESC, r.id DESC").all(),
   ]);
   const ownerOf = Object.fromEntries(owners.map((o) => [o.site_id, o.email]));
   const siteRows = sites.map((s) => {
@@ -47,6 +49,7 @@ ${s.submitter_email ? `<p class="hint">Submitted by ${esc(s.submitter_name || ""
   return portalShell("Website Kit admin", `
 <h1>Website Kit admin</h1>
 ${flash ? `<div class="msg" role="status">${flash}</div>` : ""}
+${requestsSection(env, requests)}
 <h2>Sites</h2>
 ${sites.length ? siteRows : "<p class=lead>No sites yet. Create an invite below and send it to an organization.</p>"}
 <h2>Invite an organization</h2>
@@ -56,7 +59,34 @@ ${invites.length ? `<ul class="invites">${inviteRows}</ul>` : ""}
 <p class="lead">Approving makes the site answer on its domain, but the domain still has to be connected by hand: add the domain in Cloudflare, copy every email record (MX, SPF, DKIM, DMARC) first, attach the domain and <code>www</code> to the <code>websitekit</code> Worker, then switch nameservers at the registrar.</p>`);
 }
 
+// Requests waiting for review, each with the GitHub issue it would become. Sending is the approval: the
+// issue mentions @claude, so the workflow drafts a pull request (and spends API credit).
+function requestsSection(env, requests) {
+  const waiting = requests.filter((r) => r.status === "new"), sent = requests.filter((r) => r.status === "sent");
+  if (!requests.length) return "";
+  const row = (r) => `<article class="site">
+<div class="site-head"><div><h3>${esc(r.title)}</h3><span class="hint">${esc(JSON.parse(r.config).name)} · ${esc(r.email || "someone")} · through ${esc(r.via)} · ${esc(r.created_at.slice(0, 10))}</span></div></div>
+<p>${esc(r.details)}</p>
+${githubReady(env) ? `<form method="post" action="/admin/requests/${r.id}/send"><label for="t-${r.id}">Issue title</label><input id="t-${r.id}" name="title" value="${esc(r.title)}" required>
+<label for="b-${r.id}">Issue text <span class="hint">— public on GitHub. Take out anything that identifies the organization or a person.</span></label><textarea id="b-${r.id}" name="body" rows="8" required>${esc(defaultIssueBody(r))}</textarea>
+<button class="btn save">Send to GitHub — Claude drafts a pull request</button></form>` : `<p class="hint">To send requests to GitHub, set the GITHUB_TOKEN secret and the GITHUB_REPO variable.</p>`}
+<form method="post" action="/admin/requests/${r.id}/dismiss"><button class="btn quiet">Dismiss</button></form></article>`;
+  return `<h2>Feature requests${waiting.length ? ` (${waiting.length} waiting)` : ""}</h2>
+${waiting.map(row).join("") || `<p class="hint">Nothing waiting.</p>`}
+${sent.length ? `<ul class="invites">${sent.map((r) => `<li><span>${esc(r.title)}</span><a href="${esc(r.issue_url)}">${esc(r.issue_url.replace("https://github.com/", ""))}</a></li>`).join("")}</ul>` : ""}`;
+}
+
 export async function adminPost(env, url, form) {
+  const req = url.pathname.match(/^\/admin\/requests\/(\d+)\/(send|dismiss)$/);
+  if (req) {
+    if (req[2] === "dismiss") {
+      await env.DB.prepare("UPDATE feature_requests SET status = 'dismissed' WHERE id = ? AND status = 'new'").bind(req[1]).run();
+      return "Request dismissed.";
+    }
+    if (!githubReady(env)) return "GitHub isn’t set up yet.";
+    const r = await sendToGitHub(env, Number(req[1]), form.get("title"), form.get("body"));
+    return r.error ? esc(r.error) : `Sent: <a href="${esc(r.url)}">${esc(r.url)}</a>. Claude will comment on the issue with a draft; review the pull request before merging.`;
+  }
   const m = url.pathname.match(/^\/admin\/sites\/([0-9a-f]+)\/(approve|archive|domain|owner|owner-link)$/);
   if (url.pathname === "/admin/invites") {
     const code = randomId(10);

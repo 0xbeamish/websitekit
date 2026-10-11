@@ -196,6 +196,7 @@ const ACTIVITY = {
   saved: (d) => `saved${d ? `: ${d}` : ""}`, published: () => "published the site", restored: () => "loaded an older version into the draft",
   undone: () => "undid the assistant’s last change", assistant: (d) => `asked the assistant, which changed ${d}`,
   added: (d) => `added ${d}`, removed: (d) => `removed ${d}`, policy: (d) => d, pages: (d) => d,
+  suggested: (d) => `suggested a new feature: ${d}`,
   agent: (d) => `used ${d.replace(/: /, " to change ")}`,
 };
 
