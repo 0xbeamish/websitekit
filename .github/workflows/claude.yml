@@ -37,6 +37,8 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Read-only shell tools plus the project's own checks. No general node/npx: request text comes from
+          # outside, so Claude shouldn't run arbitrary scripts with the repo token in reach.
           claude_args: |
-            --max-turns 40
-            --allowedTools "Bash(npm ci),Bash(npm test),Bash(node --check:*),Bash(git:*)"
+            --max-turns 120
+            --allowedTools "Bash(npm ci),Bash(npm test),Bash(node --check:*),Bash(node --test:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(find:*),Bash(sed -n:*)"
