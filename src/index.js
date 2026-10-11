@@ -5,12 +5,14 @@ import { isAdmin, challenge, adminView, adminPost } from "./admin.js";
 import { editorView, editorPost, loadSite, signInPage, messagePage, doneMessage, threadRows, bubbleHtml, logActivity } from "./editor.js";
 import { assistantTurn, overLimit } from "./ai.js";
 import { docText } from "./doctext.js";
+import { receiveMessage } from "./messages.js";
 import { connector, authorize, finishSignIn } from "./connector.js";
 import { currentEditor, redeemHandoff, startSession, endSession, addEditor, makeHandoff, sessionCookie, clearCookie, googleReady, googleStartUrl, googleStart, googleCallback, currentAdmin, ensureAdminEditor, portalOrigin } from "./auth.js";
 
 const notFound = () => page(portalShell("Not found", "<h1>Not found</h1>"), 404);
 const PRIVATE = { "cache-control": "no-store", "x-robots-tag": "noindex", "content-security-policy": "frame-ancestors 'self'" }; // same-origin framing only: blocks clickjacking, allows the editor's own preview
 const formOf = (request) => request.formData().catch(() => new FormData()); // a bodyless POST has nothing to parse
+const MESSAGE_PATH = "/_kit/message"; // where a live site's message forms send
 const redirect = (to, headers = {}) => new Response(null, { status: 303, headers: { location: to, ...headers } });
 
 // The portal also hosts the agent connector (/mcp, OAuth endpoints) once its KV store exists; org domains never do.
@@ -43,9 +45,16 @@ const app = {
       if (signin) return signIn(env, signin[1], site.id, "/edit");
       const edit = url.pathname.match(/^\/edit(?:\/(.+))?$/);
       if (edit) return editRoute(request, env, { site, base: "/edit", origin: url.origin }, edit[1]);
+      if (url.pathname === MESSAGE_PATH && request.method === "POST") {
+        const r = await receiveMessage(env, site, await formOf(request));
+        if (!r) return notFound();
+        if (r.sent) return redirect(`/${r.slug}?sent=${r.at}#${r.at}`); // the thank-you shows in place of the form; refreshing doesn't resend
+        return page(renderSite(JSON.parse(site.config), { page: r.slug, form: { action: MESSAGE_PATH, ...r } }), 400, { "cache-control": "no-store" });
+      }
       const slug = url.pathname === "/" ? "" : url.pathname.match(/^\/([a-z0-9-]{1,40})\/?$/)?.[1];
-      const html = slug !== undefined && renderSite(JSON.parse(site.config), { page: slug });
-      return html ? page(html, 200, { "cache-control": "public, max-age=60" }) : notFound();
+      const sent = url.searchParams.get("sent");
+      const html = slug !== undefined && renderSite(JSON.parse(site.config), { page: slug, form: { action: MESSAGE_PATH, at: sent, sent: Boolean(sent) } });
+      return html ? page(html, 200, { "cache-control": sent ? "no-store" : "public, max-age=60" }) : notFound();
     }
 
     if (signin) return signIn(env, signin[1], null, null);
@@ -218,6 +227,7 @@ const privacy = (env) => `<h1>Privacy</h1>
 <p>If you connect an AI app, such as Claude or ChatGPT, to Website Kit, that app can read and change the drafts of the websites you can edit, but not publish them. What the app does with that information is covered by its own provider’s privacy policy. Disconnect it in the app at any time; it also loses access as soon as you are removed from a website’s editors.</p>
 <h2>People who visit a website</h2>
 <p>Published websites set no cookies and use no tracking or advertising. Fonts are loaded from Google Fonts, so your browser contacts Google when a page loads.</p>
+<p>Some websites have a message form. If you send a message with it, Website Kit stores your name, email address and message, and shows them only to the people who edit that website, until they delete it. It is not used for anything else.</p>
 <h2>Where it lives, and who sees it</h2>
 <p>Everything is stored with Cloudflare, which hosts the service. Nothing is sold or shared for advertising.</p>
 <h2>Removing your information</h2>

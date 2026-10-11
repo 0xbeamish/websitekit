@@ -37,11 +37,27 @@ const RENDER = {
     return `<section class="contact"><div class="wrap contact-inner"><div><h2>${esc(s.heading || "Get in touch")}</h2>${paragraphs(s.body)}</div>
   <div class="contact-actions">${s.email ? `<a class="button primary" href="mailto:${esc(s.email)}">${esc(s.email)}</a>` : ""}${details.map((d) => `<p>${esc(d)}</p>`).join("")}</div></div></section>`;
   },
+  // `c.form`: where the form sends (null in previews, so nothing is sent), plus the result of a send to this section.
+  form: (s, c, id) => {
+    const f = c.form.at === id ? c.form : {};
+    const head = `<h2>${esc(s.heading)}</h2>${paragraphs(s.body)}`;
+    if (f.sent) return `<section class="message-form"><div class="wrap measure">${head}<p class="form-done" role="status">${esc(s.thanks || "Thanks — your message has been sent.")}</p></div></section>`;
+    const v = f.values || {}, on = Boolean(c.form.action);
+    const input = (name, label, attrs) => `<label for="${id}-${name}">${label}</label>${name === "message"
+      ? `<textarea id="${id}-${name}" name="${name}" ${attrs}>${esc(v[name])}</textarea>`
+      : `<input id="${id}-${name}" name="${name}" ${attrs} value="${esc(v[name])}">`}`;
+    return `<section class="message-form"><div class="wrap measure">${head}${f.error ? `<p class="form-error" role="alert">${esc(f.error)}</p>` : ""}
+  <form class="kit-form"${on ? ` method="post" action="${esc(c.form.action)}"` : ""}><input type="hidden" name="page" value="${esc(c.slug)}"><input type="hidden" name="at" value="${esc(id)}">
+  ${input("name", "Your name", 'required maxlength="120" autocomplete="name"')}${input("email", "Your email address", 'type="email" required maxlength="200" autocomplete="email"')}${input("message", "Message", 'required maxlength="4000"')}
+  <p class="kit-trap" aria-hidden="true"><label for="${id}-website">Leave this empty</label><input id="${id}-website" name="website" tabindex="-1" autocomplete="off"></p>
+  <button class="button primary"${on ? "" : " disabled"}>${esc(s.button || "Send message")}</button>${on ? "" : `<p class="form-note">This is a preview, so the form doesn’t send. It works on your published website.</p>`}</form></div></section>`;
+  },
 };
 
 // One page of a site: home when `page` is "", else the extra page with that slug (null if there isn't one).
 // `href` turns a slug into a link, so the editor's preview can keep visitors inside the preview.
-export function renderSite(raw, { page = "", href = (slug) => (slug ? `/${slug}` : "/") } = {}) {
+// `form`: { action, at, sent, error, values } for message forms; without an action they show but don't send.
+export function renderSite(raw, { page = "", href = (slug) => (slug ? `/${slug}` : "/"), form = {} } = {}) {
   const c = normalize(raw);
   const current = page ? c.pages.find((p) => p.slug === page) : null;
   if (page && !current) return null;
@@ -50,7 +66,7 @@ export function renderSite(raw, { page = "", href = (slug) => (slug ? `/${slug}`
   const fonts = FONT_PAIRS[t.fonts];
   const ids = sections.map((s, i) => `${s.type}-${i}`);
   const anchor = (test) => { const i = sections.findIndex(test); return i >= 0 ? `#${ids[i]}` : null; };
-  const isContact = (s) => s.type === "contact";
+  const isContact = (s) => s.type === "contact" || s.type === "form";
   const multi = c.pages.length > 0;
   // With extra pages the menu links pages; without, it scrolls to sections of the one page.
   const navItems = multi
@@ -60,10 +76,12 @@ export function renderSite(raw, { page = "", href = (slug) => (slug ? `/${slug}`
   const ctx = {
     name: current ? current.title : c.name,
     isPage: Boolean(current),
-    learnHref: anchor((s) => !["hero", "contact"].includes(s.type)) || (multi && !current ? href(c.pages[0].slug) : null),
+    slug: current ? current.slug : "",
+    form,
+    learnHref: anchor((s) => !isContact(s) && s.type !== "hero") || (multi && !current ? href(c.pages[0].slug) : null),
     contactHref: anchor(isContact) || (multi && contactPage !== undefined ? href(contactPage) : null),
   };
-  const body = sections.map((s, i) => RENDER[s.type](s, ctx).replace(/^<section/, `<section id="${ids[i]}"`)).join("\n");
+  const body = sections.map((s, i) => RENDER[s.type](s, ctx, ids[i]).replace(/^<section/, `<section id="${ids[i]}"`)).join("\n");
   const { primary, accent, background, header, footer } = c.colors;
   const rhythm = RHYTHM[current?.rhythm || t.rhythm];
   const band = (name, bg) => (bg ? `;--${name}-bg:${bg};--${name}-ink:${on(bg)}` : ""); // a coloured header or footer, with readable text
@@ -133,6 +151,12 @@ figcaption{margin-top:1rem;color:var(--muted);font-weight:600}figcaption::before
 .cta h2{margin-bottom:.3em}.cta p{margin:0;opacity:.9;max-width:38rem}
 .cta-button{background:var(--on-primary);color:var(--primary);border-color:var(--on-primary)}
 .contact-inner{display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:end}.contact-actions p{margin:.6rem 0 0;color:var(--muted)}
+.kit-form{display:grid;gap:.35rem;margin-top:1.5rem;max-width:36rem}.kit-form label{font-weight:600;margin-top:.6rem}
+.kit-form input,.kit-form textarea{font:inherit;color:var(--ink);background:var(--background);border:1.5px solid color-mix(in srgb,var(--ink) 45%,transparent);border-radius:var(--radius);padding:.7rem .85rem;width:100%}
+.kit-form textarea{min-height:9rem;resize:vertical}.kit-form .button{justify-self:start;margin-top:1rem;font:inherit;font-weight:700;cursor:pointer}.kit-form .button[disabled]{opacity:.6;cursor:not-allowed}
+.kit-trap{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}.form-note{color:var(--muted);font-size:.92rem;margin:.25rem 0 0}
+.form-done,.form-error{max-width:36rem;margin-top:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius);background:var(--tint);border-left:4px solid var(--primary)}.form-error{border-left-color:#c62828}
+.dark .form-done{border-left-color:var(--ink)}
 .foot{border-top:1px solid var(--rule);padding:2rem 0;color:var(--muted);font-size:.92rem}.foot p{margin:0}
 @media (prefers-reduced-motion:no-preference){.hero-copy{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}.hero-art{animation:rise .7s .12s cubic-bezier(.2,.7,.2,1) both}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}}}

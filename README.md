@@ -3,7 +3,7 @@
 Websites for community organizations — unions, tenant groups, mutual aid networks — that volunteers can run without a developer. One Cloudflare Worker hosts every site, each on the organization's own domain.
 
 - **An editor anyone can use.** Organizations edit a private draft in plain forms, see a live preview, and press Publish. Every published version is kept and can be restored.
-- **Pages, sections and themes.** A home page plus up to 8 extra pages, each built from sections (headline, text, cards, numbers, quote, questions, banner, contact). Four presets with font, corner, spacing and colour overrides; text colours adjust automatically to stay readable.
+- **Pages, sections and themes.** A home page plus up to 8 extra pages, each built from sections (headline, text, cards, numbers, quote, questions, banner, contact, message form). Messages sent through a form are kept on the editing page for the team to read and answer. Four presets with font, corner, spacing and colour overrides; text colours adjust automatically to stay readable.
 - **Teams.** Editors sign in with Google. Anyone on a site can add people; owners can remove them and can require that only they publish.
 - **A built-in assistant.** Ask for changes in plain words, or attach a Word document of website copy and it builds the pages from it. It edits the draft only.
 - **A connector for AI apps.** Claude, ChatGPT or any MCP client can connect, sign in with the same Google account, and read sites and change drafts. Publishing stays with people.
@@ -16,6 +16,7 @@ Websites for community organizations — unions, tenant groups, mutual aid netwo
 | `src/schema.js` | The single definition of a site's settings. Everything — forms, the assistant, the connector — goes through `normalize()`, so nothing outside these fields renders. |
 | `src/site.js` | Renders a site page from its settings, with the shared stylesheet. |
 | `src/editor.js`, `src/editorform.js` | The editor: one panel per section, pages, sharing, history, the assistant sidebar. |
+| `src/messages.js` | Message forms: receives what visitors send on a live site (with a hidden spam trap and a daily limit) and lists it in the editor. |
 | `src/ai.js` | The built-in assistant (Claude via the Anthropic API) with two tools, `get_draft` and `save_draft`. |
 | `src/connector.js` | MCP server at `/mcp` with `list_sites`, `get_site`, `save_site`, behind OAuth 2.1 ([`@cloudflare/workers-oauth-provider`](https://github.com/cloudflare/workers-oauth-provider)). |
 | `src/auth.js` | Google sign-in, sessions, editor lists. |
